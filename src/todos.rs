@@ -28,8 +28,8 @@ pub fn get_all_todos() -> Result<Vec<Todo>, io::Error> {
 }
 
 /// Saves the todos to "todos.json"
-pub fn save_todos(todos: Vec<Todo>) {
-    let todos_str = serde_json::to_string(&todos).unwrap();
+pub fn save_todos(todos: &Vec<Todo>) {
+    let todos_str = serde_json::to_string(todos).unwrap();
     File::create("todos.json")
         .unwrap()
         .write_all(todos_str.as_bytes())

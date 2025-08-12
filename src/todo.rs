@@ -40,4 +40,11 @@ impl Todo {
     pub fn is_done(&self) -> bool {
         self.done_at.is_some()
     }
+
+    pub fn toggle_done(&mut self) {
+        self.done_at = match self.done_at {
+            Some(_) => None,
+            None => Some(Utc::now()),
+        };
+    }
 }
