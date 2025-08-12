@@ -2,6 +2,8 @@
 
 A very simple todos app.
 
-| Action | Description    | Example             |
-| ------ | -------------- | ------------------- |
-| list   | List all todos | `cargo run -- list` |
+| Description             | Example                  |
+| ----------------------- | ------------------------ |
+| List **not** done todos | `cargo run -- list`      |
+| List done todos         | `cargo run -- list-done` |
+| List all todos          | `cargo run -- list-all`  |

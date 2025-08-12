@@ -5,9 +5,9 @@ use std::{
 };
 
 /// Reads todos from the "todos.json" file and returns them as a Vec<Todo>. If
-/// the file does not exist it will create an empty one. Sort by date created
-/// ascending and only get not done todos
-pub fn get_todos() -> Result<Vec<Todo>, io::Error> {
+/// the file does not exist it will create an empty one. Sorted by date created
+/// ascending
+pub fn get_all_todos() -> Result<Vec<Todo>, io::Error> {
     let mut todos_str = String::new();
 
     if !File::open("todos.json").is_ok() {
@@ -17,8 +17,6 @@ pub fn get_todos() -> Result<Vec<Todo>, io::Error> {
     let mut file = File::open("todos.json")?;
     file.read_to_string(&mut todos_str)?;
     let mut todos: Vec<Todo> = serde_json::from_str(&todos_str)?;
-
-    todos.retain(|todo| !todo.is_done());
 
     todos.sort_by(|a, b| {
         a.created_at()
