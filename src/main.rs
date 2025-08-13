@@ -38,6 +38,19 @@ fn main() {
             let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
             todo_list.todos_mut().retain(|todo| todo.id() != todo_id);
             todo_list.save();
+        } else if args[1] == "add" {
+            let todo_title = args[2].clone();
+
+            todo_list.new_todo(todo_title, None);
+            todo_list.save();
+        }
+    } else if args.len() == 4 {
+        if args[1] == "add" {
+            let todo_title = args[2].clone();
+            let todo_desc = args[3].clone();
+
+            todo_list.new_todo(todo_title, Some(todo_desc));
+            todo_list.save();
         }
     }
 }

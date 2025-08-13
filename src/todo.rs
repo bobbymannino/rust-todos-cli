@@ -52,6 +52,18 @@ impl TodoList {
     pub fn todos_mut(&mut self) -> &mut Vec<Todo> {
         &mut self.todos
     }
+
+    /// Returns the next ID for a new Todo. Will get the highest existing ID and
+    /// add 1
+    fn get_next_id(&self) -> u32 {
+        self.todos.iter().map(|todo| todo.id()).max().unwrap_or(0) + 1
+    }
+
+    pub fn new_todo(&mut self, title: String, body: Option<String>) {
+        let id = self.get_next_id();
+        let todo = Todo::new(title, body, id);
+        self.todos.push(todo);
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -64,9 +76,9 @@ pub struct Todo {
 }
 
 impl Todo {
-    pub fn new(title: String, body: Option<String>) -> Self {
+    pub fn new(title: String, body: Option<String>, id: u32) -> Self {
         Self {
-            id: 0,
+            id,
             title,
             body,
             done_at: None,
