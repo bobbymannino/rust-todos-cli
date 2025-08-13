@@ -34,6 +34,10 @@ fn main() {
             } else {
                 println!("No todo with that ID")
             }
+        } else if args[1] == "remove" {
+            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
+            todos.retain(|todo| todo.id() != todo_id);
+            save_todos(&todos);
         }
     }
 }
