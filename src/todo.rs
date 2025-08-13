@@ -46,6 +46,9 @@ impl TodoList {
     pub fn list(&self) {
         for todo in &self.todos {
             println!("#{}: {}", todo.id(), todo.title());
+            if todo.body().is_some() {
+                println!("{}", todo.body().unwrap());
+            }
         }
     }
 
