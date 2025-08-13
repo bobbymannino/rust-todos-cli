@@ -89,6 +89,11 @@ impl Todo {
         }
     }
 
+    pub fn update(&mut self, title: String, body: Option<String>) {
+        self.title = title;
+        self.body = body;
+    }
+
     pub fn id(&self) -> u32 {
         self.id
     }

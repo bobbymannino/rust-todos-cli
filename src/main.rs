@@ -1,7 +1,7 @@
 mod todo;
 
 use crate::todo::{Todo, TodoList};
-use std::env;
+use std::{env, process};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -50,6 +50,40 @@ fn main() {
             let todo_desc = args[3].clone();
 
             todo_list.new_todo(todo_title, Some(todo_desc));
+            todo_list.save();
+        } else if args[1] == "update" {
+            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
+            let todo = todo_list
+                .todos_mut()
+                .iter_mut()
+                .find(|todo| todo.id() == todo_id);
+            let Some(todo) = todo else {
+                println!("No todo with that ID");
+                process::exit(0);
+            };
+
+            let todo_title = args[3].clone();
+
+            let todo_body = todo.body().and_then(|body| Some(body.to_string()));
+            todo.update(todo_title, todo_body);
+            todo_list.save();
+        }
+    } else if args.len() == 5 {
+        if args[1] == "update" {
+            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
+            let todo = todo_list
+                .todos_mut()
+                .iter_mut()
+                .find(|todo| todo.id() == todo_id);
+            let Some(todo) = todo else {
+                println!("No todo with that ID");
+                process::exit(0);
+            };
+
+            let todo_title = args[3].clone();
+            let todo_body = args[4].clone();
+
+            todo.update(todo_title, Some(todo_body));
             todo_list.save();
         }
     }

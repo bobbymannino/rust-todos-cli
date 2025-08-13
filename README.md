@@ -1,4 +1,4 @@
-# Rust Todos CLI (WIP)
+# Rust Todos CLI
 
 A very simple todos app.
 
@@ -12,4 +12,4 @@ A very simple todos app.
 | Toggle done status on todo | `cargo run -- done <todo id>`                           | ✅     |
 | Remove todo                | `cargo run -- remove <todo id>`                         | ✅     |
 | Add todo                   | `cargo run -- add <todo text> <todo body>`              | ✅     |
-| Update todo                | `cargo run -- update <todo id> <todo text> <todo body>` | 🏗️     |
+| Update todo                | `cargo run -- update <todo id> <todo text> <todo body>` | ✅     |
