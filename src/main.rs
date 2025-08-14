@@ -1,90 +1,116 @@
 mod todo;
 
-use crate::todo::{Todo, TodoList};
+use crate::todo::TodoList;
 use std::{env, process};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().skip(1).collect();
 
-    let mut todo_list = TodoList::new().expect("Failed to get todos");
-
-    if args.len() == 1 {
-        print!("Use one of the commands to see something happen");
-    } else if args.len() == 2 {
-        if args[1] == "list" {
-            todo_list.todos_mut().retain(|todo| !todo.is_done());
-            todo_list.list();
-        } else if args[1] == "list-done" {
-            todo_list.todos_mut().retain(|todo| todo.is_done());
-            todo_list.list();
-        } else if args[1] == "list-all" {
-            todo_list.list();
+    let mut todo_list = match TodoList::new() {
+        Ok(list) => list,
+        Err(e) => {
+            eprintln!("Failed to load todos: {}", e);
+            process::exit(1);
         }
-    } else if args.len() == 3 {
-        if args[1] == "done" {
-            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
-            let todo = todo_list
-                .todos_mut()
-                .iter_mut()
-                .find(|todo| todo.id() == todo_id);
+    };
 
-            if let Some(todo) = todo {
-                todo.toggle_done();
-                todo_list.save();
-            } else {
-                println!("No todo with that ID")
+    match args.len() {
+        0 => println!("Usage: todo [list|list-done|list-all|add|done|remove|update] [args...]"),
+
+        1 => match args[0].as_str() {
+            "list" => todo_list.list_filtered(false),
+            "list-done" => todo_list.list_filtered(true),
+            "list-all" => todo_list.list(),
+            _ => {
+                eprintln!("Invalid command: {}", args[0]);
+                process::exit(1);
             }
-        } else if args[1] == "remove" {
-            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
-            todo_list.todos_mut().retain(|todo| todo.id() != todo_id);
-            todo_list.save();
-        } else if args[1] == "add" {
-            let todo_title = args[2].clone();
+        },
 
-            todo_list.new_todo(todo_title, None);
-            todo_list.save();
-        }
-    } else if args.len() == 4 {
-        if args[1] == "add" {
-            let todo_title = args[2].clone();
-            let todo_desc = args[3].clone();
+        2 => match args[0].as_str() {
+            "add" => {
+                todo_list.new_todo(&args[1], None);
+                todo_list.save_or_exit();
+            }
+            "done" => {
+                if let Ok(id) = args[1].parse::<u32>() {
+                    if todo_list.toggle_todo_done(id) {
+                        todo_list.save_or_exit();
+                    } else {
+                        eprintln!("No todo with ID {}", id);
+                        process::exit(1);
+                    }
+                } else {
+                    eprintln!("Invalid todo ID: {}", args[1]);
+                    process::exit(1);
+                }
+            }
+            "remove" => {
+                if let Ok(id) = args[1].parse::<u32>() {
+                    if todo_list.remove_todo(id) {
+                        todo_list.save_or_exit();
+                    } else {
+                        eprintln!("No todo with ID {}", id);
+                        process::exit(1);
+                    }
+                } else {
+                    eprintln!("Invalid todo ID: {}", args[1]);
+                    process::exit(1);
+                }
+            }
+            _ => {
+                eprintln!("Invalid command or arguments");
+                process::exit(1);
+            }
+        },
 
-            todo_list.new_todo(todo_title, Some(todo_desc));
-            todo_list.save();
-        } else if args[1] == "update" {
-            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
-            let todo = todo_list
-                .todos_mut()
-                .iter_mut()
-                .find(|todo| todo.id() == todo_id);
-            let Some(todo) = todo else {
-                println!("No todo with that ID");
-                process::exit(0);
-            };
+        3 => match args[0].as_str() {
+            "add" => {
+                todo_list.new_todo(&args[1], Some(&args[2]));
+                todo_list.save_or_exit();
+            }
+            "update" => {
+                if let Ok(id) = args[1].parse::<u32>() {
+                    if todo_list.update_todo(id, &args[2], None) {
+                        todo_list.save_or_exit();
+                    } else {
+                        eprintln!("No todo with ID {}", id);
+                        process::exit(1);
+                    }
+                } else {
+                    eprintln!("Invalid todo ID: {}", args[1]);
+                    process::exit(1);
+                }
+            }
+            _ => {
+                eprintln!("Invalid command or arguments");
+                process::exit(1);
+            }
+        },
 
-            let todo_title = args[3].clone();
+        4 => match args[0].as_str() {
+            "update" => {
+                if let Ok(id) = args[1].parse::<u32>() {
+                    if todo_list.update_todo(id, &args[2], Some(&args[3])) {
+                        todo_list.save_or_exit();
+                    } else {
+                        eprintln!("No todo with ID {}", id);
+                        process::exit(1);
+                    }
+                } else {
+                    eprintln!("Invalid todo ID: {}", args[1]);
+                    process::exit(1);
+                }
+            }
+            _ => {
+                eprintln!("Invalid command or arguments");
+                process::exit(1);
+            }
+        },
 
-            let todo_body = todo.body().and_then(|body| Some(body.to_string()));
-            todo.update(todo_title, todo_body);
-            todo_list.save();
-        }
-    } else if args.len() == 5 {
-        if args[1] == "update" {
-            let todo_id: u32 = args[2].parse().expect("Invalid todo ID");
-            let todo = todo_list
-                .todos_mut()
-                .iter_mut()
-                .find(|todo| todo.id() == todo_id);
-            let Some(todo) = todo else {
-                println!("No todo with that ID");
-                process::exit(0);
-            };
-
-            let todo_title = args[3].clone();
-            let todo_body = args[4].clone();
-
-            todo.update(todo_title, Some(todo_body));
-            todo_list.save();
+        _ => {
+            eprintln!("Too many arguments");
+            process::exit(1);
         }
     }
 }

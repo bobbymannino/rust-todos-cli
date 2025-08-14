@@ -1,9 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::File,
-    io::{self, Read, Write},
+    fs,
+    io::{self, ErrorKind},
+    path::Path,
+    process,
 };
+
+const TODO_FILE: &str = "todos.json";
 
 pub struct TodoList {
     todos: Vec<Todo>,
@@ -14,63 +18,122 @@ impl TodoList {
     /// the file does not exist it will create an empty one. Sorted by date created
     /// ascending
     pub fn new() -> Result<Self, io::Error> {
-        let mut todos_str = String::new();
+        let todos = if Path::new(TODO_FILE).exists() {
+            let content = fs::read_to_string(TODO_FILE)?;
+            if content.trim().is_empty() {
+                Vec::<Todo>::new()
+            } else {
+                serde_json::from_str(&content)
+                    .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?
+            }
+        } else {
+            fs::write(TODO_FILE, "[]")?;
+            Vec::new()
+        };
 
-        if !File::open("todos.json").is_ok() {
-            File::create("todos.json")?.write_all(b"[]")?;
-        }
+        let mut sorted_todos = todos;
+        sorted_todos.sort_by_key(|todo| todo.created_at.timestamp_millis());
 
-        let mut file = File::open("todos.json")?;
-        file.read_to_string(&mut todos_str)?;
-        let mut todos: Vec<Todo> = serde_json::from_str(&todos_str)?;
-
-        todos.sort_by(|a, b| {
-            a.created_at()
-                .timestamp_millis()
-                .cmp(&b.created_at().timestamp_millis())
-        });
-
-        Ok(Self { todos })
+        Ok(Self {
+            todos: sorted_todos,
+        })
     }
 
     /// Saves the todos to "todos.json"
-    pub fn save(&self) {
-        let todos_str = serde_json::to_string(&self.todos).unwrap();
-        File::create("todos.json")
-            .unwrap()
-            .write_all(todos_str.as_bytes())
-            .unwrap();
+    pub fn save(&self) -> Result<(), io::Error> {
+        let content = serde_json::to_string_pretty(&self.todos)
+            .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))?;
+        fs::write(TODO_FILE, content)
     }
 
-    /// List todos
-    pub fn list(&self) {
-        for todo in &self.todos {
-            println!("#{}: {}", todo.id(), todo.title());
-            if todo.body().is_some() {
-                println!("{}", todo.body().unwrap());
-            }
+    pub fn save_or_exit(&self) {
+        if let Err(e) = self.save() {
+            eprintln!("Failed to save todos: {}", e);
+            process::exit(1);
         }
     }
 
-    pub fn todos_mut(&mut self) -> &mut Vec<Todo> {
-        &mut self.todos
+    /// List all todos
+    pub fn list(&self) {
+        if self.todos.is_empty() {
+            println!("No todos found.");
+            return;
+        }
+
+        for todo in &self.todos {
+            self.print_todo(todo);
+        }
     }
 
-    /// Returns the next ID for a new Todo. Will get the highest existing ID and
-    /// add 1
+    /// List todos filtered by completion status
+    pub fn list_filtered(&self, show_done: bool) {
+        let filtered: Vec<_> = self
+            .todos
+            .iter()
+            .filter(|todo| todo.is_done() == show_done)
+            .collect();
+
+        if filtered.is_empty() {
+            let status = if show_done { "completed" } else { "pending" };
+            println!("No {} todos found.", status);
+            return;
+        }
+
+        for todo in filtered {
+            self.print_todo(todo);
+        }
+    }
+
+    fn print_todo(&self, todo: &Todo) {
+        let status = if todo.is_done() { "✓" } else { " " };
+        println!("[{}] #{}: {}", status, todo.id, todo.title);
+        if let Some(body) = &todo.body {
+            println!("    {}", body);
+        }
+    }
+
+    /// Toggle todo completion status by ID
+    pub fn toggle_todo_done(&mut self, id: u32) -> bool {
+        if let Some(todo) = self.todos.iter_mut().find(|t| t.id == id) {
+            todo.toggle_done();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Remove todo by ID
+    pub fn remove_todo(&mut self, id: u32) -> bool {
+        let initial_len = self.todos.len();
+        self.todos.retain(|todo| todo.id != id);
+        self.todos.len() < initial_len
+    }
+
+    /// Update todo by ID
+    pub fn update_todo(&mut self, id: u32, title: &str, body: Option<&str>) -> bool {
+        if let Some(todo) = self.todos.iter_mut().find(|t| t.id == id) {
+            todo.update(title.to_string(), body.map(|s| s.to_string()));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns the next ID for a new Todo. Will get the highest existing ID and add 1
     fn get_next_id(&self) -> u32 {
-        self.todos.iter().map(|todo| todo.id()).max().unwrap_or(0) + 1
+        self.todos.iter().map(|todo| todo.id).max().unwrap_or(0) + 1
     }
 
-    pub fn new_todo(&mut self, title: String, body: Option<String>) {
+    /// Create and add a new todo
+    pub fn new_todo(&mut self, title: &str, body: Option<&str>) {
         let id = self.get_next_id();
-        let todo = Todo::new(title, body, id);
+        let todo = Todo::new(title.to_string(), body.map(|s| s.to_string()), id);
         self.todos.push(todo);
     }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct Todo {
+struct Todo {
     id: u32,
     title: String,
     body: Option<String>,
@@ -94,30 +157,15 @@ impl Todo {
         self.body = body;
     }
 
-    pub fn id(&self) -> u32 {
-        self.id
-    }
-
-    pub fn title(&self) -> &str {
-        &self.title
-    }
-
-    pub fn body(&self) -> Option<&str> {
-        self.body.as_deref()
-    }
-
-    pub fn created_at(&self) -> DateTime<Utc> {
-        self.created_at
-    }
-
     pub fn is_done(&self) -> bool {
         self.done_at.is_some()
     }
 
     pub fn toggle_done(&mut self) {
-        self.done_at = match self.done_at {
-            Some(_) => None,
-            None => Some(Utc::now()),
+        self.done_at = if self.is_done() {
+            None
+        } else {
+            Some(Utc::now())
         };
     }
 }
